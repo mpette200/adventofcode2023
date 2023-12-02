@@ -1003,33 +1003,41 @@ pub fn run() {
     "##;
 
     let lines = read_lines(input);
-    // println!("{:#?}", lines);
-    let values: Vec<i32> = lines.into_iter()
-        .map(Digits::new)
-        .map(get_value).collect();
+    println!("{:#?}", lines);
+
+    let digits: Vec<Digits> = lines.iter()
+        .map(get_digits)
+        .collect();
+    println!("{:#?}", digits);
+
+    let values: Vec<i32> = digits.iter()
+        .map(get_value)
+        .collect();
     println!("{:#?}", values);
+
     let total: i32 = values.iter().sum();
     println!("{}", total);
+    
 }
 
 #[derive(Debug)]
-struct Digits {
-    txt: String,
-}
-
-impl Digits {
-    fn new(txt: String) -> Self {
-        Digits { txt }
-    }
-}
+struct Digits(String);
 
 fn read_lines(txt: &str) -> Vec<String> {
     txt.lines()
-        .map(|x| x.chars().filter(|y| y.is_ascii_digit()).collect())
+        .map(|x| x.trim())
+        .map(|x| x.to_owned())
         .collect()
 }
 
-fn get_value(line: Digits) -> i32 {
+fn get_digits(vals: &String) -> Digits {
+    let txt = vals.chars()
+        .filter(|x| x.is_ascii_digit())
+        .collect();
+    Digits(txt)
+}
+
+fn get_value(line: &Digits) -> i32 {
     let txt_val = get_first_and_last_digit(line);
     if txt_val.is_empty() {
         0
@@ -1038,9 +1046,16 @@ fn get_value(line: Digits) -> i32 {
     }
 }
 
-fn get_first_and_last_digit(digits: Digits) -> String {
+/// if digit only appears once it is duplicated
+/// 
+/// "" -> 0
+/// 
+/// "1" -> 11
+/// 
+/// "12" -> 12
+fn get_first_and_last_digit(digits: &Digits) -> String {
     let mut out = String::new();
-    let mut d_iter = digits.txt.chars();
+    let mut d_iter = digits.0.chars();
 
     let first_digit;
     match d_iter.next() {
