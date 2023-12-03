@@ -192,11 +192,9 @@ struct Coord {
 fn is_adjacent_to_symbol(symbol_coords: &HashSet<Coord>, digit: &Digit) -> bool {
     let xr = Range { start: min_limit(digit.xpos), end: digit.xpos + digit.len + 1 };
     let yr = Range { start: min_limit(digit.ypos), end: digit.ypos + 2 };
-    xr.into_iter()
-        .flat_map(|x| yr.clone().into_iter()
+    xr.flat_map(|x| yr.clone()
             .map(move |y| Coord { x, y })
-        )
-        .any(|coord| symbol_coords.contains(&coord))
+        ).any(|coord| symbol_coords.contains(&coord))
 }
 
 fn min_limit(val: usize) -> usize {
