@@ -121,12 +121,13 @@ pub fn run() {
     let total: i32 = valid_games.iter().map(|x| x.id).sum();
     println!("Total ids: {}", total);
 
-    let total_power: i32 = games.iter()
+    let total_power: i32 = games
+        .iter()
         .map(|x| x.max_red * x.max_green * x.max_blue)
         .sum();
 
     println!("Total powers: {}", total_power);
-    
+
     // avoids unused field warning
     let _ = &games[0].draws;
 }
