@@ -1005,19 +1005,14 @@ pub fn run() {
     let lines = read_lines(input);
     println!("{:#?}", lines);
 
-    let digits: Vec<Digits> = lines.iter()
-        .map(get_digits)
-        .collect();
+    let digits: Vec<Digits> = lines.iter().map(get_digits).collect();
     println!("{:#?}", digits);
 
-    let values: Vec<i32> = digits.iter()
-        .map(get_value)
-        .collect();
+    let values: Vec<i32> = digits.iter().map(get_value).collect();
     println!("{:#?}", values);
 
     let total: i32 = values.iter().sum();
     println!("{}", total);
-    
 }
 
 #[derive(Debug)]
@@ -1031,9 +1026,7 @@ fn read_lines(txt: &str) -> Vec<String> {
 }
 
 fn get_digits(vals: &String) -> Digits {
-    let txt = vals.chars()
-        .filter(|x| x.is_ascii_digit())
-        .collect();
+    let txt = vals.chars().filter(|x| x.is_ascii_digit()).collect();
     Digits(txt)
 }
 
@@ -1047,11 +1040,11 @@ fn get_value(line: &Digits) -> i32 {
 }
 
 /// if digit only appears once it is duplicated
-/// 
+///
 /// "" -> 0
-/// 
+///
 /// "1" -> 11
-/// 
+///
 /// "12" -> 12
 fn get_first_and_last_digit(digits: &Digits) -> String {
     let mut out = String::new();
@@ -1062,15 +1055,13 @@ fn get_first_and_last_digit(digits: &Digits) -> String {
         Some(digit) => {
             out.push(digit);
             first_digit = digit;
-        },
+        }
         None => return out,
     }
 
     match d_iter.next_back() {
         Some(digit) => out.push(digit),
-        None => {
-            out.push(first_digit)
-        },
+        None => out.push(first_digit),
     }
     out
 }
