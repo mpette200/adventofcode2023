@@ -2,7 +2,6 @@ use std::borrow::BorrowMut;
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::iter::Peekable;
-use std::ops::Range;
 use std::str::Chars;
 
 pub fn run() {
@@ -190,8 +189,8 @@ struct Coord {
 }
 
 fn is_adjacent_to_symbol(symbol_coords: &HashSet<Coord>, digit: &Digit) -> bool {
-    let xr = Range { start: min_limit(digit.xpos), end: digit.xpos + digit.len + 1 };
-    let yr = Range { start: min_limit(digit.ypos), end: digit.ypos + 2 };
+    let xr = min_limit(digit.xpos)..digit.xpos + digit.len + 1;
+    let yr = min_limit(digit.ypos)..digit.ypos + 2;
     xr.flat_map(|x| yr.clone()
             .map(move |y| Coord { x, y })
         ).any(|coord| symbol_coords.contains(&coord))
@@ -206,11 +205,7 @@ fn min_limit(val: usize) -> usize {
 }
 
 fn get_digit_coords(lines: &Vec<String>) -> Vec<Digit> {
-    Range {
-        start: 0,
-        end: lines.len(),
-    }
-    .into_iter()
+    (0..lines.len())
     .flat_map(|i| parse_digits(&lines[i], i))
     .collect()
 }
@@ -272,11 +267,7 @@ where
 }
 
 fn get_symbol_coords(lines: &Vec<String>) -> HashSet<Coord> {
-    Range {
-        start: 0,
-        end: lines.len(),
-    }
-    .into_iter()
+    (0..lines.len())
     .flat_map(|i| parse_symbols(&lines[i], i))
     .collect()
 }
