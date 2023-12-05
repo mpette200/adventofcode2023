@@ -156,7 +156,8 @@ pub fn run() {
     let symbol_coords: HashSet<Coord> = get_symbol_coords(&lines);
     // println!("{:#?}", symbol_coords);
 
-    let valid_nums: Vec<i32> = digit_coords.iter()
+    let valid_nums: Vec<i32> = digit_coords
+        .iter()
         .filter(|d| is_adjacent_to_symbol(&symbol_coords, d))
         .map(|d| d.val)
         .collect();
@@ -191,9 +192,8 @@ struct Coord {
 fn is_adjacent_to_symbol(symbol_coords: &HashSet<Coord>, digit: &Digit) -> bool {
     let xr = min_limit(digit.xpos)..digit.xpos + digit.len + 1;
     let yr = min_limit(digit.ypos)..digit.ypos + 2;
-    xr.flat_map(|x| yr.clone()
-            .map(move |y| Coord { x, y })
-        ).any(|coord| symbol_coords.contains(&coord))
+    xr.flat_map(|x| yr.clone().map(move |y| Coord { x, y }))
+        .any(|coord| symbol_coords.contains(&coord))
 }
 
 fn min_limit(val: usize) -> usize {
@@ -206,8 +206,8 @@ fn min_limit(val: usize) -> usize {
 
 fn get_digit_coords(lines: &Vec<String>) -> Vec<Digit> {
     (0..lines.len())
-    .flat_map(|i| parse_digits(&lines[i], i))
-    .collect()
+        .flat_map(|i| parse_digits(&lines[i], i))
+        .collect()
 }
 
 /// Parse the digits into numbers whilst tracking the
@@ -268,8 +268,8 @@ where
 
 fn get_symbol_coords(lines: &Vec<String>) -> HashSet<Coord> {
     (0..lines.len())
-    .flat_map(|i| parse_symbols(&lines[i], i))
-    .collect()
+        .flat_map(|i| parse_symbols(&lines[i], i))
+        .collect()
 }
 
 /// Parse the coordinate positions of the symbols
