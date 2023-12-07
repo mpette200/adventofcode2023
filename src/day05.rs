@@ -230,7 +230,7 @@ pub fn run() {
 
     println!("Min value, part 1: {}", min_value);
 
-    let seeds = seed_data.seeds;
+    let seeds = &seed_data.seeds;
     let seed_pairs: Vec<SeedRange> = (0..seeds.len())
         .step_by(2)
         .map(|i| SeedRange {
