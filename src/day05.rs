@@ -214,17 +214,68 @@ pub fn run() {
         );
     }
 
-    let min_value = seed_data.seeds.iter().map(|seed| {
-        let mut cur_value = *seed;
-        for mapper in seed_data.maps.iter() {
-            cur_value = mapper.convert_number(cur_value);
-        }
-        println!("Seed: {}, final: {}", seed, cur_value);
-        cur_value
-    }).min().unwrap();
+    let min_value = seed_data
+        .seeds
+        .iter()
+        .map(|seed| {
+            let mut cur_value = *seed;
+            for mapper in seed_data.maps.iter() {
+                cur_value = mapper.convert_number(cur_value);
+            }
+            println!("Seed: {}, final: {}", seed, cur_value);
+            cur_value
+        })
+        .min()
+        .unwrap();
 
     println!("Min value, part 1: {}", min_value);
 
+    let seeds = seed_data.seeds;
+    let seed_pairs: Vec<SeedRange> = (0..seeds.len())
+        .step_by(2)
+        .map(|i| SeedRange {
+            start: seeds[i],
+            len: seeds[i + 1],
+        })
+        .collect();
+
+    // println!("pairs: {:#?}", seed_pairs);
+
+    let min2 = seed_pairs
+        .iter()
+        .map(|r| {
+            let mut cur_seed = r.start;
+            let mut converts: Vec<i64> = Vec::new();
+            while cur_seed < r.start + r.len {
+                let mut cur_value = cur_seed;
+                let mut steps: Vec<i64> = Vec::new();
+                for mapper in seed_data.maps.iter() {
+                    let prev = cur_value;
+                    cur_value = mapper.convert_number(cur_value);
+                    match mapper.get_next_boundary(prev) {
+                        Some(next_val) => steps.push(next_val - prev),
+                        None => {}
+                    }
+                }
+                converts.push(cur_value);
+                // println!("{:#?}", steps);
+                if !steps.is_empty() {
+                    let incr = steps.iter().min().unwrap();
+                    // println!("incr: {}", incr);
+                    if *incr == 0i64 {
+                        panic!("0 value");
+                    }
+                    cur_seed += incr;
+                } else {
+                    break;
+                }
+            }
+            converts.iter().min().unwrap().clone()
+        })
+        .min()
+        .unwrap();
+
+    println!("Min value, part 2: {}", min2);
 }
 
 fn read_lines(txt: &str) -> Vec<String> {
@@ -235,18 +286,24 @@ fn read_lines(txt: &str) -> Vec<String> {
         .collect()
 }
 
-const SEED_SOIL: MapType = MapType(0);
-const SOIL_FERT: MapType = MapType(1);
-const FERT_WATER: MapType = MapType(2);
-const WATER_LIGHT: MapType = MapType(3);
-const LIGHT_TEMP: MapType = MapType(4);
-const TEMP_HUM: MapType = MapType(5);
-const HUM_LOC: MapType = MapType(6);
+const SEED_SOIL: MapIndex = MapIndex(0);
+const SOIL_FERT: MapIndex = MapIndex(1);
+const FERT_WATER: MapIndex = MapIndex(2);
+const WATER_LIGHT: MapIndex = MapIndex(3);
+const LIGHT_TEMP: MapIndex = MapIndex(4);
+const TEMP_HUM: MapIndex = MapIndex(5);
+const HUM_LOC: MapIndex = MapIndex(6);
 
 const NUMBER_OF_MAPS: usize = 7;
 
 #[derive(Debug, Clone, Copy)]
-struct MapType(usize);
+struct MapIndex(usize);
+
+#[derive(Debug, Clone, Copy)]
+struct SeedRange {
+    start: i64,
+    len: i64,
+}
 
 /// Usage example:
 ///
@@ -254,7 +311,7 @@ struct MapType(usize);
 #[derive(Debug)]
 enum ParseStates {
     FindSection,
-    GetNumbers(MapType),
+    GetNumbers(MapIndex),
 }
 
 fn parse_data(lines: &Vec<String>) -> SeedData {
@@ -267,8 +324,8 @@ fn parse_data(lines: &Vec<String>) -> SeedData {
         } else if nums.is_empty() {
             parse_state = section_heading_state(line);
         } else {
-            if let ParseStates::GetNumbers(map_type) = parse_state {
-                seed_data.get_data_mut(map_type).insert(nums);
+            if let ParseStates::GetNumbers(map_index) = parse_state {
+                seed_data.get_data_mut(map_index).insert(nums);
             }
         }
     }
@@ -334,14 +391,13 @@ impl SeedData {
         }
     }
 
-    fn get_data(&self, map_type: MapType) -> &MapFinder {
+    fn get_data(&self, map_type: MapIndex) -> &MapFinder {
         &self.maps[map_type.0]
     }
 
-    fn get_data_mut(&mut self, map_type: MapType) -> &mut MapFinder {
+    fn get_data_mut(&mut self, map_type: MapIndex) -> &mut MapFinder {
         &mut self.maps[map_type.0]
     }
-
 }
 
 /// Range_len is the range length which is same for both source and dest.
@@ -393,6 +449,29 @@ impl MapFinder {
                 }
             }
             None => n,
+        }
+    }
+
+    /// Get the closest number that is greater than the given number
+    fn get_nearest_above(&self, n: i64) -> Option<(&i64, &MapNode)> {
+        self.btree.range(n + 1..).next()
+    }
+
+    /// Only need to check on boundaries
+    fn get_next_boundary(&self, n: i64) -> Option<i64> {
+        match self.get_nearest_below(n) {
+            Some((lower_bound, map_node)) => {
+                let upper_bound = lower_bound + map_node.range_len;
+                if upper_bound > n {
+                    Some(upper_bound)
+                } else {
+                    None
+                }
+            }
+            None => match self.get_nearest_above(n) {
+                Some((lower_bound, _)) => Some(*lower_bound),
+                None => None,
+            },
         }
     }
 }
