@@ -21,16 +21,12 @@ pub fn run() {
     let total = compute_total(&races);
     println!("Total 1: {}", total);
 
-    let joined_lines: Vec<String> = lines
-        .iter()
-        .map(|x| x.replace(" ", ""))
-        .collect();
+    let joined_lines: Vec<String> = lines.iter().map(|x| x.replace(" ", "")).collect();
     println!("{:#?}", joined_lines);
-    
+
     let race_2 = read_races(&joined_lines);
     let total_2 = compute_total(&race_2);
     println!("Total 2: {}", total_2);
-
 }
 
 fn read_lines(txt: &str) -> Vec<String> {
@@ -133,7 +129,11 @@ fn compute_hold_times(duration: i64, distance: i64) -> Range<i64> {
     };
 
     let valid_range = lower..upper;
-    println!("{:#?} --> length({})", valid_range, valid_range.end - valid_range.start);
+    println!(
+        "{:#?} --> length({})",
+        valid_range,
+        valid_range.end - valid_range.start
+    );
 
     valid_range
 }
