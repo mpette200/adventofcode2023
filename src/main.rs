@@ -1,5 +1,5 @@
 use adventofcode2023 as lib;
 
 fn main() {
-    lib::run_day07();
+    lib::run_day08();
 }
