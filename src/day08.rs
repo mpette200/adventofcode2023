@@ -808,7 +808,7 @@ pub fn run() {
     println!("{:#?}", lines);
 
     // infinite iterator over instructions
-    let mut instructs = parse_instruct(&lines[0]);
+    let instructs = parse_instruct(&lines[0]);
 
     // instructs
     //     .by_ref()
@@ -820,9 +820,10 @@ pub fn run() {
 
     let total_1 = {
         let mut nsteps: i32 = 0;
+        let mut i = instructs.clone();
         let mut p = &String::from("AAA");
         loop {
-            match instructs.next().unwrap() {
+            match i.next().unwrap() {
                 Instruct::Left => p = &network.get(p).unwrap().left,
                 Instruct::Right => p = &network.get(p).unwrap().right,
             }
@@ -834,50 +835,27 @@ pub fn run() {
         }
     };
     println!("Total 1: {}", total_1);
-    // don't accidentally re-use
-    drop(instructs);
 
-    // need to start iterator again
-    let mut instructs2 = parse_instruct(&lines[0]);
-    let total_2 = {
-        let mut nodes: Vec<&String> = get_starting_nodes(&network);
-        println!("Starting: {:#?}", nodes);
+    let nodes: Vec<&String> = get_starting_nodes(&network);
+    println!("Starting at: {:#?}", nodes);
 
-        let mut nsteps: i32 = 0;
-        loop {
-            match instructs2.next().unwrap() {
-                Instruct::Left => {
-                    nodes = nodes
-                        .iter()
-                        .map(|x| &network.get(*x).unwrap().left)
-                        .collect();
-                }
-                Instruct::Right => {
-                    nodes = nodes
-                        .iter()
-                        .map(|x| &network.get(*x).unwrap().right)
-                        .collect();
-                }
-            }
-            nsteps += 1;
+    let distances: Vec<FinishDist> = nodes
+        .iter()
+        .map(|x| get_finish_dist(&network, instructs.clone(), x))
+        .collect();
+    println!("Distances: {:#?}", distances);
 
-            // println!("moved to: {:#?}", nodes);
-            // println!("num steps: {}", nsteps);
-            // if nsteps > 10 {
-            //     break nsteps;
-            // }
+    println!("lcm 10,15 -> {}", lcm(15, 10));
 
-            if nsteps % 1_000_000 == 0 {
-                println!("currently at: {:#?}", nodes);
-                println!("num steps: {}", nsteps);
-            }
-
-            if nodes.iter().all(|x| x.ends_with("Z")) {
-                break nsteps;
-            }
-        }
-    };
+    let total_2 = distances
+        .iter()
+        .map(|x| x.cycle_length)
+        .reduce(|acc, elem| lcm(acc, elem))
+        .unwrap();
     println!("Total 2: {}", total_2);
+
+    // avoid unused element compiler warning
+    let _ = distances[0].offset;
 }
 
 fn read_lines(txt: &str) -> Vec<String> {
@@ -894,7 +872,7 @@ enum Instruct {
     Right,
 }
 
-fn parse_instruct(txt: &str) -> impl Iterator<Item = Instruct> + '_ {
+fn parse_instruct(txt: &str) -> impl Iterator<Item = Instruct> + Clone + '_ {
     txt.chars()
         .map(move |x| {
             if x == 'L' {
@@ -930,10 +908,76 @@ fn parse_info(txt: &str) -> (String, Info) {
     )
 }
 
+fn filter_letters(txt: &str) -> String {
+    txt.chars().filter(|x| x.is_ascii_alphanumeric()).collect()
+}
+
 fn get_starting_nodes(network: &HashMap<String, Info>) -> Vec<&'_ String> {
     network.keys().filter(|x| x.ends_with("A")).collect()
 }
 
-fn filter_letters(txt: &str) -> String {
-    txt.chars().filter(|x| x.is_ascii_alphanumeric()).collect()
+#[derive(Debug, Clone, Copy)]
+struct FinishDist {
+    offset: i64,
+    cycle_length: i64,
+}
+
+fn get_finish_dist<T>(
+    network: &HashMap<String, Info>,
+    mut instructs: T,
+    start: &String,
+) -> FinishDist
+where
+    T: Iterator<Item = Instruct>,
+{
+    let (offset, endval) = get_dist(network, &mut instructs, start);
+    FinishDist {
+        offset,
+        cycle_length: get_dist(network, &mut instructs, endval).0,
+    }
+}
+
+fn get_dist<'a, T>(
+    network: &'a HashMap<String, Info>,
+    instructs: &'_ mut T,
+    start: &'a String,
+) -> (i64, &'a String)
+where
+    T: Iterator<Item = Instruct>,
+{
+    let mut nsteps: i64 = 0;
+    let mut p = start;
+    // println!("Dist start at: {}", p);
+    loop {
+        match instructs.next().unwrap() {
+            Instruct::Left => p = &network.get(p).unwrap().left,
+            Instruct::Right => p = &network.get(p).unwrap().right,
+        }
+        // println!("moved to: {}", p);
+        nsteps += 1;
+        if p.ends_with("Z") {
+            // println!("Dist end at: {}", p);
+            // println!();
+            break (nsteps, p);
+        }
+    }
+}
+
+/// greatest common divisor
+fn gcd(mut a: i64, mut b: i64) -> i64 {
+    // make sure 'b' is always bigger than 'a'
+    if b < a {
+        (a, b) = (b, a);
+    }
+    loop {
+        if b % a == 0 {
+            break a;
+        }
+        (a, b) = (b % a, a);
+    }
+}
+
+/// lowest common multiple
+fn lcm(a: i64, b: i64) -> i64 {
+    a * (b / gcd(a, b))
 }
