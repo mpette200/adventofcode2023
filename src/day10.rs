@@ -181,39 +181,43 @@ pub fn run() {
     for i in 0..size.0 {
         // everytime you cross a boundary alternate
         // between inside or outside
-        use Tile::*;
         use Move::*;
+        use Tile::*;
         let mut is_inside = false;
         let mut is_on_line = false;
         let mut entered_north = false;
         for j in 0..size.1 {
             match g[i][j] {
-                Pipe(d1, d2) => if [d1, d2] == [N, S] || [d1, d2] == [S, N] {
-                    is_inside = !is_inside;
-                } else if !is_on_line {
-                    is_on_line = true;
-                    if [d1, d2].contains(&N) {
-                        entered_north = true;
-                    } else if [d1, d2].contains(&S) {
-                        entered_north = false;
-                    }
-                } else {
-                    if [d1, d2].contains(&N) {
-                        is_on_line = false;
-                        if !entered_north {
-                            is_inside = !is_inside;
+                Pipe(d1, d2) => {
+                    if [d1, d2] == [N, S] || [d1, d2] == [S, N] {
+                        is_inside = !is_inside;
+                    } else if !is_on_line {
+                        is_on_line = true;
+                        if [d1, d2].contains(&N) {
+                            entered_north = true;
+                        } else if [d1, d2].contains(&S) {
+                            entered_north = false;
                         }
-                    } else if [d1, d2].contains(&S) {
-                        is_on_line = false;
-                        if entered_north {
-                            is_inside = !is_inside;
+                    } else {
+                        if [d1, d2].contains(&N) {
+                            is_on_line = false;
+                            if !entered_north {
+                                is_inside = !is_inside;
+                            }
+                        } else if [d1, d2].contains(&S) {
+                            is_on_line = false;
+                            if entered_north {
+                                is_inside = !is_inside;
+                            }
                         }
                     }
-                },
-                _ => if is_inside {
+                }
+                _ => {
+                    if is_inside {
                         count += 1;
                         tmp[i][j] = 'I';
-                },
+                    }
+                }
             };
         }
     }
@@ -313,7 +317,6 @@ impl Point {
             panic!("bad direction");
         }
     }
-
 }
 
 #[derive(Debug)]
@@ -438,5 +441,4 @@ impl Grid {
     fn get_tile(&self, p: Point) -> Tile {
         self.v[p.i][p.j]
     }
-
 }

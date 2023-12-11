@@ -1012,7 +1012,14 @@ pub fn run() {
     println!("{:#?}", values);
 
     let total: i32 = values.iter().sum();
-    println!("{}", total);
+    println!("total 1: {}", total);
+
+    let total2: i32 = lines
+        .iter()
+        .map(|x| get_harder_fl(x))
+        .map(|(a, b)| 10 * a + b)
+        .sum();
+    println!("total 2: {}", total2);
 }
 
 #[derive(Debug)]
@@ -1021,6 +1028,7 @@ struct Digits(String);
 fn read_lines(txt: &str) -> Vec<String> {
     txt.lines()
         .map(|x| x.trim())
+        .filter(|x| !x.is_empty())
         .map(|x| x.to_owned())
         .collect()
 }
@@ -1064,4 +1072,40 @@ fn get_first_and_last_digit(digits: &Digits) -> String {
         None => out.push(first_digit),
     }
     out
+}
+
+fn get_harder_fl(txt: &str) -> (i32, i32) {
+    let mapping = [
+        ("one", 1),
+        ("two", 2),
+        ("three", 3),
+        ("four", 4),
+        ("five", 5),
+        ("six", 6),
+        ("seven", 7),
+        ("eight", 8),
+        ("nine", 9),
+        ("1", 1),
+        ("2", 2),
+        ("3", 3),
+        ("4", 4),
+        ("5", 5),
+        ("6", 6),
+        ("7", 7),
+        ("8", 8),
+        ("9", 9),
+    ];
+    let (_, first_digit) = mapping
+        .into_iter()
+        .min_by_key(|(c, _)| txt.find(*c).unwrap_or(usize::MAX))
+        .unwrap();
+
+    let (_, last_digit) = mapping
+        .into_iter()
+        .max_by_key(|(c, _)| txt.rfind(*c).map(|x| 1 + x).unwrap_or(0))
+        .unwrap();
+
+    println!("{} -> ({}, {})", txt, first_digit, last_digit);
+
+    (first_digit, last_digit)
 }
