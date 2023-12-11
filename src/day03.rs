@@ -165,6 +165,24 @@ pub fn run() {
 
     let total: i32 = valid_nums.iter().sum();
     println!("total: {}", total);
+
+    let has_two: Vec<_> = symbol_coords
+        .iter()
+        .map(|s| {
+            digit_coords
+                .iter()
+                .filter(|d| s.is_adjacent_to_digit(**d))
+                .collect::<Vec<_>>()
+        })
+        .filter(|v| v.len() == 2)
+        .collect();
+
+    println!("has two: {:#?}", has_two);
+
+    let total2: i32 = has_two.iter().map(|v| v[0].val * v[1].val).sum();
+    println!("Total 2: {}", total2);
+
+    println!();
 }
 
 fn read_lines(txt: &str) -> Vec<String> {
@@ -187,6 +205,15 @@ struct Digit {
 struct Coord {
     x: usize,
     y: usize,
+}
+
+impl Coord {
+    fn is_adjacent_to_digit(&self, d: Digit) -> bool {
+        let xr = min_limit(self.x)..self.x + 2;
+        let yr = min_limit(self.y)..self.y + 2;
+        xr.flat_map(|x| yr.clone().map(move |y| (x, y)))
+            .any(|(x, y)| x >= d.xpos && x < d.xpos + d.len && y == d.ypos)
+    }
 }
 
 fn is_adjacent_to_symbol(symbol_coords: &HashSet<Coord>, digit: &Digit) -> bool {
