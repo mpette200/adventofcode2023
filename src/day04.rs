@@ -214,6 +214,10 @@ pub fn run() {
 
     let score: i32 = cards.iter().map(compute_score).sum();
     println!("Total Score: {}", score);
+
+    let score2 = compute_score2(&cards);
+    println!("Total Score2: {}", score2);
+
 }
 
 fn read_lines(txt: &str) -> Vec<String> {
@@ -231,19 +235,34 @@ struct Card {
 }
 
 fn compute_score(card: &Card) -> i32 {
-    let num_matches: u32 = card
-        .picked_nums
-        .iter()
-        .filter(|x| card.winning_nums.contains(x))
-        .count()
-        .try_into()
-        .unwrap();
-
+    let num_matches: u32 = compute_num_matches(&card).try_into().unwrap();
     if num_matches == 0 {
         0
     } else {
         2i32.pow(num_matches - 1)
     }
+}
+
+fn compute_score2(cards: &[Card]) -> i32 {
+    let num_matches: Vec<usize> = cards.iter().map(|x| compute_num_matches(x)).collect();
+
+    let mut count_copies = vec![1usize; cards.len()];
+    for (i, n_match) in num_matches.iter().enumerate() {
+        for j in i + 1..i + 1 + *n_match {
+            if j < count_copies.len() {
+                count_copies[j] += count_copies[i];
+            }
+        }
+    }
+    count_copies.iter().map(|x| i32::try_from(*x).unwrap()).sum()
+}
+
+fn compute_num_matches(card: &Card) -> usize {
+    card
+        .picked_nums
+        .iter()
+        .filter(|x| card.winning_nums.contains(x))
+        .count()
 }
 
 fn read_card(txt: &str) -> Card {

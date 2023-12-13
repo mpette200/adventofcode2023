@@ -1,9 +1,17 @@
+use core::panic;
 use dashu::integer::UBig;
 use std::{error::Error, fmt::Display, iter};
 
-pub fn run() -> Result<(), Box<dyn Error>> {
+pub fn run() {
+    match run_x() {
+        Ok(_) => (),
+        Err(x) => panic!("Failed with error: {}", x),
+    }
+}
+
+fn run_x() -> Result<(), Box<dyn Error>> {
     let input = r##"
-    ##.#.##
+    88##.#.##
     #.##...
     .######
     ##....#
@@ -1408,11 +1416,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     }
     println!("patterns: {:#?}", patterns);
 
-    let axes: Vec<_> = patterns.iter()
-            .map(|x| find_mirror_axis(x))
-            .collect();
+    let axes: Vec<_> = patterns.iter().map(|x| find_mirror_axis(x)).collect();
     println!("axes: {:#?}", axes);
-    
+
     let total1: usize = axes.iter().sum();
     println!("Total 1: {}", total1);
 
@@ -1452,8 +1458,7 @@ fn find_mirror_axis(pat: &Grid) -> usize {
         .filter(|i| is_mirr_axis(&pat.rows, *i))
         .map(|i| i * 100);
 
-    let col_iter = (1..pat.cols.len())
-        .filter(|j| is_mirr_axis(&pat.cols, *j));
+    let col_iter = (1..pat.cols.len()).filter(|j| is_mirr_axis(&pat.cols, *j));
 
     row_iter.chain(col_iter).next().unwrap()
 }
