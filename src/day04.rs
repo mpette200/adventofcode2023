@@ -266,9 +266,8 @@ fn compute_num_matches(card: &Card) -> usize {
 }
 
 fn read_card(txt: &str) -> Card {
-    let mut parts = txt.split(":").nth(1).unwrap().split("|");
-    let win_nums = parts.next().unwrap();
-    let pick_nums = parts.next().unwrap();
+    let (_name, info) = txt.split_once(":").unwrap();
+    let (win_nums, pick_nums) = info.split_once("|").unwrap();
     // println!("{} -- {}", win_nums, pick_nums);
     Card {
         winning_nums: read_nums(win_nums, HashSet::new, |obj, x| {
