@@ -10,6 +10,7 @@ mod day09;
 mod day10;
 mod day11;
 mod day13;
+mod day14;
 mod day_blank;
 
 pub use day01::run as run_day01;
@@ -24,4 +25,5 @@ pub use day09::run as run_day09;
 pub use day10::run as run_day10;
 pub use day11::run as run_day11;
 pub use day13::run as run_day13;
+pub use day14::run as run_day14;
 pub use day_blank::run as run_day_blank;
