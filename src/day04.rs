@@ -217,7 +217,6 @@ pub fn run() {
 
     let score2 = compute_score2(&cards);
     println!("Total Score2: {}", score2);
-
 }
 
 fn read_lines(txt: &str) -> Vec<String> {
@@ -254,12 +253,14 @@ fn compute_score2(cards: &[Card]) -> i32 {
             }
         }
     }
-    count_copies.iter().map(|x| i32::try_from(*x).unwrap()).sum()
+    count_copies
+        .iter()
+        .map(|x| i32::try_from(*x).unwrap())
+        .sum()
 }
 
 fn compute_num_matches(card: &Card) -> usize {
-    card
-        .picked_nums
+    card.picked_nums
         .iter()
         .filter(|x| card.winning_nums.contains(x))
         .count()

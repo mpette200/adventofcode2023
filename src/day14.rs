@@ -114,7 +114,6 @@ pub fn run() {
 
     let total1: usize = scores.iter().sum();
     println!("Total 1: {}", total1);
-
 }
 
 fn read_lines(txt: &str) -> Vec<String> {
