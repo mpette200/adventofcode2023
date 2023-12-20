@@ -1,4 +1,8 @@
-use std::{collections::VecDeque, fmt::Display};
+use rayon::{ThreadPool, ThreadPoolBuilder};
+use std::collections::VecDeque;
+use std::fmt::Display;
+use std::sync::{Arc, Mutex};
+// use std::thread;
 
 const LINE_SEP: &str = "\n";
 
@@ -116,24 +120,33 @@ pub fn run() {
     .......|..-.......\..........|................................................/..\.....-..........-...........
     "##;
     let lines = read_lines(input);
-    println!("{:#?}", lines);
+    // println!("{:#?}", lines);
 
     let devices = parse_lines(&lines);
     println!("devices: {}", devices);
 
-    let mut out1 = empty_output(devices.elems.len(), devices.elems[0].len());
+    let mut out1 = init_output(devices.elems.len(), devices.elems[0].len());
     // println!("out1_empty: {}", out1);
 
     shine_light(&devices, &mut out1);
     println!("out1: {}", out1);
 
-    let total1 = out1
-        .elems
-        .iter()
-        .flat_map(|x| x.iter())
-        .filter(|x| x.is_any_alight())
-        .count();
+    let total1 = count_total(out1);
     println!("Total 1: {}", total1);
+
+    let out1b = shine_light_thread_safe(&devices);
+    println!("out1b: {}", out1b);
+
+    let total1b = count_total(out1b);
+    println!("Total 1b: {}", total1b);
+
+    let runner = JobRunner::new(&devices);
+    let all_counts = runner.compute_all_positions();
+    // println!("All Counts: {:#?}", all_counts);
+
+    println!("counts.len(): {}", all_counts.len());
+    let total2 = all_counts.iter().max().unwrap();
+    println!("Total 2: {}", total2);
 }
 
 fn read_lines(txt: &str) -> Vec<String> {
@@ -164,9 +177,15 @@ fn parse_device(c: char) -> Device {
     }
 }
 
-fn empty_output(rows: usize, cols: usize) -> Grid<Energized> {
+fn init_output(rows: usize, cols: usize) -> Grid<Energized> {
     let mut v = Grid::new();
     v.fill(rows, cols, Energized::new);
+    v
+}
+
+fn init_output_thread_safe(bounds: Coord) -> Grid<Mutex<Energized>> {
+    let mut v = Grid::new();
+    v.fill(bounds.0, bounds.1, || Mutex::new(Energized::new()));
     v
 }
 
@@ -178,6 +197,88 @@ fn shine_light(devices: &Grid<Device>, result: &mut Grid<Energized>) {
             .pop_front()
             .unwrap()
             .shine(devices, result, &mut queue);
+    }
+}
+
+fn count_total(result: Grid<Energized>) -> usize {
+    result
+        .elems
+        .iter()
+        .flat_map(|x| x.iter())
+        .filter(|x| x.is_any_alight())
+        .count()
+}
+
+fn shine_light_thread_safe(devices: &Grid<Device>) -> Grid<Energized> {
+    let runner = JobRunner::new(devices);
+    let start = CurrentPos::new(Coord(0, 0), Direction::Right);
+    runner.compute_single_pos(start)
+}
+
+#[derive(Debug)]
+struct JobRunner<'a> {
+    pool: ThreadPool,
+    devices: &'a Grid<Device>,
+}
+
+impl<'a> JobRunner<'a> {
+    fn new(devices: &'a Grid<Device>) -> Self {
+        Self {
+            pool: ThreadPoolBuilder::new()
+                .num_threads(4)
+                .stack_size(20 * 1024 * 1024)
+                .build()
+                .unwrap(),
+            devices,
+        }
+    }
+
+    fn compute_single_pos(&self, mut pos: CurrentPos) -> Grid<Energized> {
+        let result = init_output_thread_safe(self.devices.bounds());
+        self.pool
+            .scope(|s| s.spawn(|_| pos.shine_thread_safe(self.devices, &result)));
+        Self::convert_result(result)
+    }
+
+    fn compute_all_positions(&self) -> Vec<usize> {
+        let counts = Vec::<usize>::new();
+        let counts = Arc::new(Mutex::new(counts));
+        self.pool.scope(|s| {
+            // println!("Num positions: {}", self.generate_positions().count());
+            for mut pos in self.generate_positions() {
+                let counts = counts.clone();
+                s.spawn(move |_| {
+                    let result = init_output_thread_safe(self.devices.bounds());
+                    pos.shine_thread_safe(self.devices, &result);
+                    let result = Self::convert_result(result);
+                    counts.lock().unwrap().push(count_total(result));
+                });
+            }
+        });
+        let x = counts.lock().unwrap().clone();
+        x
+    }
+
+    fn convert_result(result: Grid<Mutex<Energized>>) -> Grid<Energized> {
+        let mut converted = Grid::new();
+        for row in result.elems.iter() {
+            converted.push_iter(row.iter().map(|x| *x.lock().unwrap()));
+        }
+        converted
+    }
+
+    fn generate_positions(&self) -> impl Iterator<Item = CurrentPos> {
+        use Direction::*;
+        let bounds = self.devices.bounds();
+        let left_edge = (0..bounds.0).map(|i| CurrentPos::new(Coord(i, 0), Right));
+        let right_edge = (0..bounds.0).map(move |i| CurrentPos::new(Coord(i, bounds.1 - 1), Left));
+        let top_edge = (0..bounds.1).map(|j| CurrentPos::new(Coord(0, j), Right));
+        let bottom_edge =
+            (0..bounds.1).map(move |j| CurrentPos::new(Coord(bounds.0 - 1, j), Right));
+        left_edge
+            .chain(right_edge)
+            .chain(top_edge)
+            .chain(bottom_edge)
     }
 }
 
@@ -222,6 +323,57 @@ impl CurrentPos {
             self.coord = coord;
             self.going_to = going_to;
         }
+    }
+
+    fn shine_thread_safe(&mut self, devices: &Grid<Device>, result: &Grid<Mutex<Energized>>) {
+        use NextDirection::*;
+        let bounds = devices.bounds();
+        let c = self.coord;
+        // println!("Lock WAIT: {:?}", thread::current().id());
+        let mut res = result.get(c).lock().unwrap();
+        // println!("Lock ACQUIRED {:?}", thread::current().id());
+
+        if res.is_alight(self.going_to) {
+            return;
+        }
+        res.set_alight(self.going_to);
+        // manually dropping here seems to be essential
+        drop(res);
+        match devices.get(c).next_dir(self.going_to) {
+            Single(d) => match c.next_coord(d, bounds) {
+                Some(coord) => {
+                    self.coord = coord;
+                    self.going_to = d;
+                    self.shine_thread_safe(devices, result);
+                }
+                None => return,
+            },
+            Pair(d, d2) => match c.next_coord(d, bounds) {
+                Some(coord1) => {
+                    self.coord = coord1;
+                    self.going_to = d;
+                    match c.next_coord(d2, bounds) {
+                        Some(coord2) => {
+                            let mut other = Self::new(coord2, d2);
+                            // println!("Spawning Threads");
+                            rayon::join(
+                                || self.shine_thread_safe(devices, result),
+                                || other.shine_thread_safe(devices, result),
+                            );
+                        }
+                        None => self.shine_thread_safe(devices, result),
+                    }
+                }
+                None => match c.next_coord(d2, bounds) {
+                    Some(coord) => {
+                        self.coord = coord;
+                        self.going_to = d2;
+                        self.shine_thread_safe(devices, result);
+                    }
+                    None => return,
+                },
+            },
+        };
     }
 }
 
