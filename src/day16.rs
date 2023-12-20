@@ -329,16 +329,16 @@ impl CurrentPos {
         use NextDirection::*;
         let bounds = devices.bounds();
         let c = self.coord;
-        // println!("Lock WAIT: {:?}", thread::current().id());
-        let mut res = result.get(c).lock().unwrap();
-        // println!("Lock ACQUIRED {:?}", thread::current().id());
-
-        if res.is_alight(self.going_to) {
-            return;
+        // scope blocks necessary to release lock from let binding
+        {
+            // println!("Lock WAIT: {:?}", thread::current().id());
+            let mut res = result.get(c).lock().unwrap();
+            // println!("Lock ACQUIRED {:?}", thread::current().id());
+            if res.is_alight(self.going_to) {
+                return;
+            }
+            res.set_alight(self.going_to);
         }
-        res.set_alight(self.going_to);
-        // manually dropping here seems to be essential
-        drop(res);
         match devices.get(c).next_dir(self.going_to) {
             Single(d) => match c.next_coord(d, bounds) {
                 Some(coord) => {
