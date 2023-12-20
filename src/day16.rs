@@ -255,8 +255,7 @@ impl<'a> JobRunner<'a> {
                 });
             }
         });
-        let x = counts.lock().unwrap().clone();
-        x
+        Arc::try_unwrap(counts).unwrap().into_inner().unwrap()
     }
 
     fn convert_result(result: Grid<Mutex<Energized>>) -> Grid<Energized> {
