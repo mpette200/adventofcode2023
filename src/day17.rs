@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::Display;
 // use std::io;
@@ -160,17 +161,35 @@ pub fn run() {
         RouteInfo::new(Direction::Right, 2),
         grid.bounds_incl(),
     );
-    let min1 = solver1.compute();
+    let min1 = solver1.compute(PuzzleType::A);
     let solver2 = RouteSearch::new(
         &grid,
         Coord(1, 0),
         RouteInfo::new(Direction::Down, 2),
         grid.bounds_incl(),
     );
-    let min2 = solver2.compute();
-    println!("Minimum part 1 right: {}", min1);
-    println!("Minimum part 1 down: {}", min2);
+    let min2 = solver2.compute(PuzzleType::A);
+    println!("Minimum part 1 right: {:?}", min1);
+    println!("Minimum part 1 down: {:?}", min2);
 
+    println!("-------");
+
+    let solver3 = RouteSearch::new(
+        &grid,
+        Coord(0, 1),
+        RouteInfo::new(Direction::Right, 9),
+        grid.bounds_incl(),
+    );
+    let min3 = solver3.compute(PuzzleType::B);
+    let solver4 = RouteSearch::new(
+        &grid,
+        Coord(1, 0),
+        RouteInfo::new(Direction::Down, 9),
+        grid.bounds_incl(),
+    );
+    let min4 = solver4.compute(PuzzleType::B);
+    println!("Minimum part 2 right: {:?}", min3);
+    println!("Minimum part 2 down: {:?}", min4);
     println!("-------");
 }
 
@@ -192,6 +211,11 @@ fn lines_to_grid(lines: &[String]) -> Grid<u8> {
         );
     }
     grid
+}
+
+enum PuzzleType {
+    A,
+    B,
 }
 
 #[derive(Debug)]
@@ -226,7 +250,12 @@ impl<'a> RouteSearch<'a> {
     }
 
     /// This function takes ownership of self because it can only be run once
-    fn compute(mut self) -> u32 {
+    fn compute(mut self, puzzle_type: PuzzleType) -> Option<u32> {
+        let mins_generator = match puzzle_type {
+            PuzzleType::A => Self::possible_mins_a,
+            PuzzleType::B => Self::possible_mins_b,
+        };
+
         let bounds = self.heat_loss.bounds();
         let mut n_iterations: i64 = 0;
         let mut is_converged = false;
@@ -235,7 +264,7 @@ impl<'a> RouteSearch<'a> {
             is_converged = true;
             for i in 0..bounds.0 {
                 for j in 0..bounds.1 {
-                    let any_updated: bool = self.update_mins(Coord(i, j));
+                    let any_updated: bool = self.update_mins(Coord(i, j), mins_generator);
                     is_converged &= !any_updated;
                 }
                 // println!("Minimums: {:#?}", self.minimums);
@@ -246,32 +275,53 @@ impl<'a> RouteSearch<'a> {
             println!("iteration {} ...", n_iterations);
         }
         println!("Converged in {} iterations", n_iterations);
-        *self.minimums.get(self.finish_pos).values().min().unwrap()
+        match puzzle_type {
+            PuzzleType::A => self.minimums.get(self.finish_pos).values().min().cloned(),
+            PuzzleType::B => self
+                .minimums
+                .get(self.finish_pos)
+                .iter()
+                .filter(|(k, _)| k.straight_remaining < 7)
+                .map(|(_, v)| v)
+                .min()
+                .cloned(),
+        }
     }
 
     /// Update the minimum at the given position.
     /// Returns true if anything got updated.
-    fn update_mins(&mut self, pos: Coord) -> bool {
+    fn update_mins<T, R>(&mut self, pos: Coord, mut generator_mins: T) -> bool
+    where
+        T: FnMut(&Self, Coord, Direction) -> R,
+        R: IntoIterator<Item = (RouteInfo, u32)>,
+    {
         let bounds = self.heat_loss.bounds();
         let min_items: Vec<(RouteInfo, u32)> = pos
             .neighbors(bounds)
-            .flat_map(|(coord, d)| self.possible_mins(coord, d))
+            .flat_map(|(coords, direc)| generator_mins(self, coords, direc))
             .collect();
 
         let my_heat: u32 = (*self.heat_loss.get(pos)).into();
         let mut any_updated = false;
         for (k, v) in min_items {
-            let heat = self.minimums.get_mut(pos).entry(k).or_insert(my_heat + v);
-            if v + my_heat < *heat {
-                *heat = v + my_heat;
-                any_updated = true;
+            match self.minimums.get_mut(pos).entry(k) {
+                Entry::Occupied(mut e) => {
+                    if *e.get() > v + my_heat {
+                        *e.get_mut() = v + my_heat;
+                        any_updated = true;
+                    }
+                }
+                Entry::Vacant(e) => {
+                    e.insert(v + my_heat);
+                    any_updated = true;
+                }
             }
         }
         any_updated
     }
 
     /// Gets all possible minimums assuming you are moving in the given direction
-    fn possible_mins(&self, coord: Coord, direc: Direction) -> Vec<(RouteInfo, u32)> {
+    fn possible_mins_a(&self, coord: Coord, direc: Direction) -> Vec<(RouteInfo, u32)> {
         let mm = &self.minimums;
         let mut cumulative_heat = Vec::<(RouteInfo, u32)>::new();
 
@@ -289,6 +339,36 @@ impl<'a> RouteSearch<'a> {
                 let key = RouteInfo::new(d, i);
                 match mm.get(coord).get(&key) {
                     Some(v) => cumulative_heat.push((RouteInfo::new(direc, 2), *v)),
+                    None => (),
+                }
+            }
+        }
+        cumulative_heat
+    }
+
+    /// Gets all possible minimums for the second part
+    /// Must go straight for a min of 4 consecutive blocks
+    /// and a max of 10 consecutive blocks
+    fn possible_mins_b(&self, coord: Coord, direc: Direction) -> Vec<(RouteInfo, u32)> {
+        let mm = &self.minimums;
+        let mut cumulative_heat = Vec::<(RouteInfo, u32)>::new();
+
+        for i in 1..10_u32 {
+            // the straight direction skips 0
+            let key = RouteInfo::new(direc, i);
+            match mm.get(coord).get(&key) {
+                Some(v) => cumulative_heat.push((RouteInfo::new(direc, i - 1), *v)),
+                None => (),
+            }
+        }
+
+        for i in 0..7_u32 {
+            // i is the remaining counting down from 9
+            // when i is [9 8 7] you have to go straight
+            for d in direc.all_90deg() {
+                let key = RouteInfo::new(d, i);
+                match mm.get(coord).get(&key) {
+                    Some(v) => cumulative_heat.push((RouteInfo::new(direc, 9), *v)),
                     None => (),
                 }
             }
