@@ -632,6 +632,25 @@ pub fn run() {
         .filter(|x| **x == '#')
         .count();
     println!("Total 1: {}", total1);
+
+    let moves1_quick: Vec<(char, i64)> = moves
+        .iter()
+        .map(|(a, b)| (*a, (*b).try_into().unwrap()))
+        .collect();
+
+    let total1_qc = compute_area_2nd(&moves1_quick, true);
+    let total1_qac = compute_area_2nd(&moves1_quick, false);
+    println!("Total 1, clockwise: {}", total1_qc);
+    println!("Total 1, anti-clockwise: {}", total1_qac);
+
+    let moves2 = parse_2nd(&lines);
+    // println!("{:#?}", moves2);
+    // println!("i64::MIN {}", i64::MIN);
+
+    let total2c = compute_area_2nd(&moves2, true);
+    let total2ac = compute_area_2nd(&moves2, false);
+    println!("Total 2, clockwise: {}", total2c);
+    println!("Total 2, anti-clockwise: {}", total2ac);
 }
 
 fn read_lines(txt: &str) -> Vec<String> {
@@ -652,6 +671,80 @@ fn parse_lines(lines: &[String]) -> Vec<(char, usize)> {
             (d, amount.parse().unwrap())
         })
         .collect()
+}
+
+fn parse_2nd(lines: &[String]) -> Vec<(char, i64)> {
+    lines
+        .iter()
+        .map(|x| {
+            let (_, digits) = x.split_once('#').unwrap();
+            let d = match digits.chars().nth(5).unwrap() {
+                '0' => 'R',
+                '1' => 'D',
+                '2' => 'L',
+                '3' => 'U',
+                bad => panic!("Unexpected char {}", bad),
+            };
+            let amount: String = digits.chars().take(5).collect();
+            (d, i64::from_str_radix(&amount, 16).unwrap())
+        })
+        .collect()
+}
+
+/// If this is negative need to use the reverse direction
+fn compute_area_2nd(moves: &[(char, i64)], clockwise: bool) -> i64 {
+    // ...####.... i=0
+    // ...#..##... i=1
+    // ...##..#... i=2
+    // ....####... i=3
+
+    // Loosely based on the shoelace formula, but modified for horizontal lines only.
+    // Keep track of the row number (i), then compute the rectangle above each horizontal line.
+
+    // Add the horizontal edge once when moving to the positive direction.
+    // Vertical edges will be captured anyway when computing the rectangles.
+
+    let len = moves.len();
+    let mut i: i64 = 0;
+    let mut area: i64 = 0;
+
+    // area above line is +ve if moving left
+    let positive_dir = if clockwise { 'L' } else { 'R' };
+    let negative_dir = if clockwise { 'R' } else { 'L' };
+
+    for idx in 0..len {
+        let (d, amount) = moves[idx];
+        if d == 'D' {
+            i += amount;
+        } else if d == 'U' {
+            i -= amount;
+        } else {
+            let prev_idx = if idx > 0 { idx - 1 } else { len - 1 };
+            let next_idx = if idx + 1 < len { idx + 1 } else { 0 };
+            let mut width = amount;
+            // area above line but don't duplicate edges
+            if d == positive_dir {
+                if moves[prev_idx].0 != 'U' {
+                    width += 1;
+                }
+                if moves[next_idx].0 == 'U' {
+                    width += 1;
+                }
+                area += (1 + i) * (width - 1);
+            } else if d == negative_dir {
+                if moves[prev_idx].0 != 'D' {
+                    width += 1;
+                }
+                if moves[next_idx].0 == 'D' {
+                    width += 1;
+                }
+                area -= i * (width - 1);
+            } else {
+                panic!("expected U L D R got {}", d);
+            }
+        }
+    }
+    area
 }
 
 fn make_boundary(moves: &[(char, usize)]) -> Grid<char> {
