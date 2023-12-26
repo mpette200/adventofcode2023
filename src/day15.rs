@@ -21,7 +21,7 @@ pub fn run() {
         .iter()
         .enumerate()
         .flat_map(|(i, items)| {
-            items.iter().enumerate().map(move |(j, (name, val))| {
+            items.iter().enumerate().map(move |(j, (_name, val))| {
                 let i: i32 = i.try_into().unwrap();
                 let j: i32 = j.try_into().unwrap();
                 (i + 1) * (j + 1) * val
